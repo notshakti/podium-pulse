@@ -34,6 +34,35 @@
   margin: 1rem 0 0;
 }
 
+.quiz-display-start-btn {
+  margin-top: 1.5rem;
+  padding: 1rem 3rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  background: var(--accent-purple);
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(123, 44, 191, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quiz-display-start-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 32px rgba(123, 44, 191, 0.5);
+}
+
+.quiz-display-start-btn:active {
+  transform: scale(0.98);
+}
+
+.quiz-display-question-count {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--accent-muted);
+}
+
 .quiz-display-active {
   gap: 2rem;
   justify-content: flex-start;

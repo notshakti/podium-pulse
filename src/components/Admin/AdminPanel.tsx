@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +24,7 @@ export function AdminPanel() {
     setQuizState,
     addTeam,
     updateTeamPoints,
+    updateTeam,
     removeTeam,
     startTimer,
     pauseTimer,
@@ -36,9 +37,19 @@ export function AdminPanel() {
   } = useApp();
   const { logout } = useAuth();
 
+  const defaultSlotId = slots[0]?.id ?? '';
   const [newTeamName, setNewTeamName] = useState('');
-  const [newTeamSlotId, setNewTeamSlotId] = useState('');
+  const [newTeamSlotId, setNewTeamSlotId] = useState(defaultSlotId);
+  const [addTeamError, setAddTeamError] = useState('');
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editingTeamName, setEditingTeamName] = useState('');
+  const [editingPointsTeamId, setEditingPointsTeamId] = useState<string | null>(null);
+  const [editingPointsValue, setEditingPointsValue] = useState('');
   const [deleteTeam, setDeleteTeam] = useState<Team | null>(null);
+
+  useEffect(() => {
+    if (defaultSlotId && !newTeamSlotId) setNewTeamSlotId(defaultSlotId);
+  }, [defaultSlotId, newTeamSlotId]);
   const [questionForm, setQuestionForm] = useState<Partial<QuizQuestion> & { question: string; options: [string, string, string, string]; correctIndex: number }>({
     question: '',
     options: ['', '', '', ''],
@@ -46,17 +57,53 @@ export function AdminPanel() {
   });
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
-  const defaultSlotId = slots[0]?.id ?? '';
-
   const getTimer = (slotId: string) => timers.find((t) => t.slotId === slotId);
   const getTeamsForSlot = (slotId: string) => teams.filter((t) => t.slotId === slotId);
 
   const handleAddTeam = () => {
+    setAddTeamError('');
+    const name = newTeamName.trim();
     const slotId = newTeamSlotId || defaultSlotId;
-    if (!newTeamName.trim() || !slotId) return;
-    addTeam(newTeamName.trim(), slotId);
+    if (!name) {
+      setAddTeamError('Please enter a team name.');
+      return;
+    }
+    if (!slotId) {
+      setAddTeamError('Please select a slot.');
+      return;
+    }
+    addTeam(name, slotId);
     setNewTeamName('');
-    setNewTeamSlotId('');
+  };
+
+  const startEditTeamName = (team: Team) => {
+    setEditingTeamId(team.id);
+    setEditingTeamName(team.name);
+  };
+
+  const saveTeamName = () => {
+    if (editingTeamId && editingTeamName.trim()) {
+      updateTeam(editingTeamId, { name: editingTeamName.trim() });
+    }
+    setEditingTeamId(null);
+    setEditingTeamName('');
+  };
+
+  const startEditingPoints = (team: Team) => {
+    setEditingPointsTeamId(team.id);
+    setEditingPointsValue(String(team.points));
+  };
+
+  const commitPoints = (teamId: string) => {
+    const n = parseInt(editingPointsValue.replace(/\D/g, ''), 10);
+    if (!Number.isNaN(n)) updateTeamPoints(teamId, Math.max(0, n));
+    setEditingPointsTeamId(null);
+    setEditingPointsValue('');
+  };
+
+  const getPointsDisplayValue = (team: Team) => {
+    if (editingPointsTeamId === team.id) return editingPointsValue;
+    return String(team.points);
   };
 
   const handleConfirmDelete = () => {
@@ -162,14 +209,19 @@ export function AdminPanel() {
       {/* Team management by slot */}
       <section className="admin-section">
         <h2 className="admin-section-title">Team management</h2>
-        <div className="admin-add-team">
+        <form
+          className="admin-add-team"
+          onSubmit={(e) => { e.preventDefault(); handleAddTeam(); }}
+        >
           <input
             type="text"
             className="admin-input"
             placeholder="Team name"
             value={newTeamName}
-            onChange={(e) => setNewTeamName(e.target.value)}
+            onChange={(e) => { setNewTeamName(e.target.value); setAddTeamError(''); }}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTeam()}
+            aria-invalid={!!addTeamError}
+            aria-describedby={addTeamError ? 'add-team-error' : undefined}
           />
           <select
             className="admin-select"
@@ -180,10 +232,15 @@ export function AdminPanel() {
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <button type="button" className="admin-btn admin-btn-primary" onClick={handleAddTeam}>
+          <button type="submit" className="admin-btn admin-btn-primary">
             Add team
           </button>
-        </div>
+          {addTeamError && (
+            <p id="add-team-error" className="admin-add-team-error" role="alert">
+              {addTeamError}
+            </p>
+          )}
+        </form>
 
         {slots.map((slot) => {
           const slotTeams = getTeamsForSlot(slot.id);
@@ -229,42 +286,71 @@ export function AdminPanel() {
               <ul className="admin-team-list">
                 {slotTeams.map((team) => (
                   <li key={team.id} className="admin-team-row">
-                    <span className="admin-team-name">{team.name}</span>
-                    <div className="admin-team-points">
-                      <button
-                        type="button"
-                        className="admin-btn-icon"
-                        onClick={() => updateTeamPoints(team.id, Math.max(0, team.points - 1))}
-                        aria-label="Decrease points"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        className="admin-input admin-input-points"
-                        min={0}
-                        value={team.points}
-                        onChange={(e) => {
-                          const n = parseInt(e.target.value, 10);
-                          if (!Number.isNaN(n)) updateTeamPoints(team.id, Math.max(0, n));
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="admin-btn-icon"
-                        onClick={() => updateTeamPoints(team.id, team.points + 1)}
-                        aria-label="Increase points"
-                      >
-                        +
-                      </button>
+                    {editingTeamId === team.id ? (
+                      <div className="admin-team-name-edit">
+                        <input
+                          type="text"
+                          className="admin-input admin-input-name"
+                          value={editingTeamName}
+                          onChange={(e) => setEditingTeamName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveTeamName(); if (e.key === 'Escape') { setEditingTeamId(null); setEditingTeamName(''); } }}
+                          autoFocus
+                        />
+                        <button type="button" className="admin-btn admin-btn-sm admin-btn-primary" onClick={saveTeamName}>Save</button>
+                        <button type="button" className="admin-btn admin-btn-sm admin-btn-outline" onClick={() => { setEditingTeamId(null); setEditingTeamName(''); }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <span className="admin-team-name">{team.name}</span>
+                    )}
+                    {editingTeamId !== team.id && (
+                      <button type="button" className="admin-btn admin-btn-sm admin-btn-outline admin-btn-edit-name" onClick={() => startEditTeamName(team)} aria-label="Edit team name">Edit</button>
+                    )}
+                    <div className="admin-team-points-wrap">
+                      <span className="admin-team-points-label">Points</span>
+                      <div className="admin-team-points">
+                        <button
+                          type="button"
+                          className="admin-btn-points admin-btn-points-minus"
+                          onClick={() => updateTeamPoints(team.id, Math.max(0, team.points - 1))}
+                          aria-label="Decrease points"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          className="admin-input admin-input-points"
+                          value={getPointsDisplayValue(team)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, '');
+                            setEditingPointsValue(raw);
+                            const n = raw === '' ? 0 : parseInt(raw, 10);
+                            if (!Number.isNaN(n)) updateTeamPoints(team.id, Math.max(0, n));
+                          }}
+                          onFocus={() => startEditingPoints(team)}
+                          onBlur={() => commitPoints(team.id)}
+                          aria-label={`Points for ${team.name}`}
+                        />
+                        <button
+                          type="button"
+                          className="admin-btn-points admin-btn-points-plus"
+                          onClick={() => updateTeamPoints(team.id, team.points + 1)}
+                          aria-label="Increase points"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-danger admin-btn-sm"
-                      onClick={() => setDeleteTeam(team)}
-                    >
-                      Delete
-                    </button>
+                    {editingTeamId !== team.id && (
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-danger admin-btn-sm"
+                        onClick={() => setDeleteTeam(team)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

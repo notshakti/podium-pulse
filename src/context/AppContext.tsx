@@ -110,14 +110,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setQuestionsState((prev) => (typeof arg === 'function' ? arg(prev) : arg));
   }, []);
   const setQuizState = useCallback((arg: QuizDisplayState | ((prev: QuizDisplayState) => QuizDisplayState)) => {
-    setQuizStateState((prev) => (typeof arg === 'function' ? arg(prev) : arg));
+    setQuizStateState((prev) => {
+      const next = typeof arg === 'function' ? arg(prev) : arg;
+      storage.saveQuizState(next);
+      return next;
+    });
   }, []);
 
   const addTeam = useCallback((name: string, slotId: string) => {
-    setTeamsState((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), name: name.trim() || 'Unknown', slotId, points: 0 },
-    ]);
+    const trimmed = name.trim() || 'Unknown';
+    if (!trimmed) return;
+    if (!slotId) return;
+    const newTeam = { id: crypto.randomUUID(), name: trimmed, slotId, points: 0 };
+    setTeamsState((prev) => {
+      const next = [...prev, newTeam];
+      storage.saveTeams(next);
+      return next;
+    });
   }, []);
 
   const updateTeamPoints = useCallback((id: string, points: number) => {

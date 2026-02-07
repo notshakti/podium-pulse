@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import './QuizDisplay.css';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+const REVEAL_DURATION_MS = 4000; // Show correct answer for 4 sec then go to next
 
 export function QuizDisplay() {
   const { questions, quizState, setQuizState } = useApp();
@@ -10,9 +11,30 @@ export function QuizDisplay() {
 
   const question = questions[quizState.currentQuestionIndex] ?? null;
 
+  // When timer runs out we reveal; after a short delay auto-advance to next question (or end quiz)
   useEffect(() => {
-    if (quizState.phase !== 'question' || !question) return;
-    if (quizState.revealed) return;
+    if (quizState.phase !== 'reveal' || !quizState.revealed) return;
+
+    const timeout = setTimeout(() => {
+      const nextIndex = quizState.currentQuestionIndex + 1;
+      if (nextIndex >= questions.length) {
+        setQuizState({ phase: 'idle', currentQuestionIndex: 0, countdownSeconds: 10, revealed: false });
+      } else {
+        setQuizState({
+          phase: 'question',
+          currentQuestionIndex: nextIndex,
+          countdownSeconds: 10,
+          revealed: false,
+        });
+      }
+    }, REVEAL_DURATION_MS);
+
+    return () => clearTimeout(timeout);
+  }, [quizState.phase, quizState.revealed, quizState.currentQuestionIndex, questions.length, setQuizState]);
+
+  // Countdown: run interval only when we're in question phase and not revealed. Don't depend on countdownSeconds so the interval isn't recreated every tick.
+  useEffect(() => {
+    if (quizState.phase !== 'question' || !question || quizState.revealed) return;
 
     const tick = () => {
       setQuizState((prev) => {
@@ -30,14 +52,38 @@ export function QuizDisplay() {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
     };
-  }, [quizState.phase, question, quizState.revealed, quizState.countdownSeconds, setQuizState]);
+  }, [quizState.phase, quizState.revealed, question, setQuizState]);
+
+  const handleStartQuiz = () => {
+    if (questions.length === 0) return;
+    setQuizState({
+      phase: 'question',
+      currentQuestionIndex: 0,
+      countdownSeconds: 10,
+      revealed: false,
+    });
+  };
 
   if (quizState.phase === 'idle') {
     return (
       <div className="quiz-display quiz-display-idle">
         <h1 className="quiz-display-title">Build a Bot</h1>
         <p className="quiz-display-subtitle">Hackathon Quiz</p>
-        <p className="quiz-display-wait">Waiting for the next question…</p>
+        {questions.length > 0 ? (
+          <>
+            <p className="quiz-display-wait">Ready to start. Click below to show the first question.</p>
+            <button
+              type="button"
+              className="quiz-display-start-btn"
+              onClick={handleStartQuiz}
+            >
+              Start Quiz
+            </button>
+            <p className="quiz-display-question-count">{questions.length} question{questions.length !== 1 ? 's' : ''} loaded</p>
+          </>
+        ) : (
+          <p className="quiz-display-wait">No questions yet. Add questions in the Admin dashboard.</p>
+        )}
       </div>
     );
   }
