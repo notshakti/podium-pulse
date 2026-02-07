@@ -51,15 +51,22 @@ export function QuizDisplay() {
   }
 
   const showReveal = quizState.phase === 'reveal' || quizState.revealed;
+  const countdownTotal = 10;
+  const countdownProgress = (quizState.countdownSeconds / countdownTotal) * 100;
 
   return (
     <div className="quiz-display quiz-display-active">
       <div className="quiz-display-question-block">
         <h2 className="quiz-display-question">{question.question}</h2>
         {quizState.phase === 'question' && (
-          <div className="quiz-display-countdown" role="timer" aria-live="polite">
-            {quizState.countdownSeconds}
-          </div>
+          <>
+            <div className="quiz-display-countdown" role="timer" aria-live="polite">
+              {quizState.countdownSeconds}
+            </div>
+            <div className="quiz-display-progress-wrap" role="progressbar" aria-valuenow={quizState.countdownSeconds} aria-valuemin={0} aria-valuemax={countdownTotal}>
+              <div className="quiz-display-progress-bar" style={{ width: `${countdownProgress}%` }} />
+            </div>
+          </>
         )}
       </div>
       <div className="quiz-display-options">
@@ -70,7 +77,12 @@ export function QuizDisplay() {
           >
             <span className="quiz-display-option-label">{OPTION_LABELS[i]}</span>
             <span className="quiz-display-option-text">{text}</span>
-            {showReveal && i === question.correctIndex && <span className="quiz-display-option-check">✓</span>}
+            {showReveal && i === question.correctIndex && (
+            <>
+              <span className="quiz-display-option-check">✓</span>
+              <span className="quiz-display-correct-label">Correct!</span>
+            </>
+          )}
           </div>
         ))}
       </div>

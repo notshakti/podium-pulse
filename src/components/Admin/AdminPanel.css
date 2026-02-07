@@ -2,12 +2,44 @@
   min-height: 100vh;
   padding: 2rem 1.5rem 3rem;
   background: var(--page-bg);
-  max-width: 720px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
 .admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-link {
+  color: var(--accent-yellow);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.admin-link:hover {
+  color: white;
+}
+
+.admin-btn-outline {
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.admin-btn-sm {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
 }
 
 .admin-title {
@@ -78,9 +110,177 @@
   color: white;
 }
 
-.admin-btn-small {
-  padding: 0.35rem 0.65rem;
-  font-size: 0.8rem;
+.admin-btn-small,
+.admin-btn-sm {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Scores toggle */
+.admin-scores-toggle-section {
+  margin-bottom: 1.5rem;
+}
+
+.scores-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.scores-toggle-label {
+  font-weight: 700;
+  color: white;
+}
+
+.scores-toggle-btn {
+  padding: 0.6rem 1.25rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.scores-toggle-btn:hover {
+  transform: translateY(-2px);
+}
+
+.scores-toggle-btn.scores-visible {
+  background: var(--accent-green);
+  color: #1a1a2e;
+}
+
+.scores-toggle-btn.scores-hidden {
+  background: #e63946;
+  color: white;
+}
+
+/* Add team */
+.admin-add-team {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.admin-add-team .admin-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.admin-select {
+  padding: 0.6rem 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 0.95rem;
+  min-width: 100px;
+}
+
+/* Slot cards */
+.admin-slot-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-slot-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: white;
+  margin: 0;
+}
+
+.admin-slot-timer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-slot-timer-display {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent-yellow);
+  font-variant-numeric: tabular-nums;
+  min-width: 5ch;
+}
+
+.admin-team-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-team-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.admin-team-row:last-child {
+  border-bottom: none;
+}
+
+.admin-team-name {
+  flex: 1;
+  min-width: 120px;
+  font-weight: 600;
+  color: white;
+}
+
+.admin-team-points {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.admin-btn-icon {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.admin-btn-icon:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.admin-input-points {
+  width: 56px;
+  text-align: center;
+}
+
+.admin-slot-empty {
+  margin: 0;
+  padding: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
 }
 
 .admin-current-question-label {
@@ -152,16 +352,6 @@
 .admin-question-item-correct {
   font-size: 0.8rem;
   color: var(--accent-green);
-}
-
-.admin-add-participant {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.admin-add-participant .admin-input {
-  flex: 1;
 }
 
 .admin-scores-table-wrap {

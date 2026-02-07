@@ -1,7 +1,23 @@
-export interface Participant {
+export interface Slot {
+  id: string;
+  name: string; // "Slot 1", "Slot 2", etc.
+}
+
+export interface Team {
   id: string;
   name: string;
+  slotId: string;
   points: number;
+}
+
+export interface SlotTimerState {
+  slotId: string;
+  remainingSeconds: number; // 90 * 60 = 5400
+  isPaused: boolean;
+}
+
+export interface AppSettings {
+  scoresHidden: boolean;
 }
 
 export interface QuizQuestion {
@@ -26,3 +42,6 @@ export const DEFAULT_QUIZ_DISPLAY: QuizDisplayState = {
   countdownSeconds: 10,
   revealed: false,
 };
+
+export const TIMER_DURATION_SECONDS = 90 * 60; // 1 hr 30 min
+export const QUIZ_COUNTDOWN_SECONDS = 10;

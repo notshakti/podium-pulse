@@ -79,6 +79,21 @@
   50%  { transform: translateY(-50%) scale(1.05); }
 }
 
+.quiz-display-progress-wrap {
+  margin-top: 1rem;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.quiz-display-progress-bar {
+  height: 100%;
+  background: var(--accent-yellow);
+  border-radius: 4px;
+  transition: width 1s linear;
+}
+
 .quiz-display-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -125,6 +140,14 @@
   font-size: 1.5rem;
   color: white;
   font-weight: 800;
+}
+
+.quiz-display-correct-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .quiz-display-option--correct {

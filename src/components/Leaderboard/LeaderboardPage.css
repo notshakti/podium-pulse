@@ -40,3 +40,78 @@
   color: rgba(255, 255, 255, 0.8);
   margin: 0 0 0.75rem 0.5rem;
 }
+
+.leaderboard-tabs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.leaderboard-tab {
+  padding: 0.5rem 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.leaderboard-tab:hover {
+  border-color: var(--accent-yellow);
+  color: white;
+}
+
+.leaderboard-tab.active {
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: white;
+}
+
+.leaderboard-slot-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.leaderboard-slot-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.leaderboard-slot-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.leaderboard-slot-btn.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+
+.leaderboard-slot-timer {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-yellow);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.5rem;
+}
+
+.leaderboard-slot-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 2rem 0;
+}

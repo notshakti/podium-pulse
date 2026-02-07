@@ -95,6 +95,13 @@
   line-height: 1.2;
 }
 
+.podium__slot {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.8);
+  text-align: center;
+}
+
 .podium__points {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;

@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
 import { LeaderboardPage } from './components/Leaderboard/LeaderboardPage';
 import { AdminPanel } from './components/Admin/AdminPanel';
 import { QuizDisplay } from './components/QuizDisplay/QuizDisplay';
@@ -8,8 +11,9 @@ import './App.css';
 function Nav() {
   const location = useLocation();
   const isQuizDisplay = location.pathname === '/display';
+  const isLogin = location.pathname === '/login';
 
-  if (isQuizDisplay) return null;
+  if (isQuizDisplay || isLogin) return null;
 
   return (
     <nav className="app-nav">
@@ -25,18 +29,28 @@ function Nav() {
 
 function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Nav />
-        <main className="app-main">
-          <Routes>
-            <Route path="/" element={<LeaderboardPage />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/display" element={<QuizDisplay />} />
-          </Routes>
-        </main>
-      </BrowserRouter>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <BrowserRouter>
+          <Nav />
+          <main className="app-main">
+            <Routes>
+              <Route path="/" element={<LeaderboardPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/display" element={<QuizDisplay />} />
+            </Routes>
+          </main>
+        </BrowserRouter>
+      </AppProvider>
+    </AuthProvider>
   );
 }
 
