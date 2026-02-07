@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap');
+
+:root {
+  font-family: 'Nunito', system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 600;
+  color: #fff;
+  background-color: #1a1a2e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Kahoot-style vibrant palette */
+  --page-bg: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+  --accent-purple: #7b2cbf;
+  --accent-blue: #4361ee;
+  --accent-pink: #e6399b;
+  --accent-green: #2ed573;
+  --accent-yellow: #ffd93d;
+  --accent-orange: #ff6b35;
+  --accent-muted: rgba(255, 255, 255, 0.75);
+  --podium-first: #ffd93d;
+  --podium-second: #a0a0a0;
+  --podium-third: #cd7f32;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--page-bg);
+  background-attachment: fixed;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  font-weight: 600;
+  color: var(--accent-yellow);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #fff;
+}
+
+button {
+  font-family: inherit;
+}
+
+input, button {
+  font-family: inherit;
+}

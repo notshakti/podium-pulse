@@ -1,0 +1,188 @@
+.admin-panel {
+  min-height: 100vh;
+  padding: 2rem 1.5rem 3rem;
+  background: var(--page-bg);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.admin-header {
+  margin-bottom: 2rem;
+}
+
+.admin-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: white;
+  margin: 0;
+}
+
+.admin-subtitle {
+  color: var(--accent-muted);
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+}
+
+.admin-section {
+  margin-bottom: 2rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.admin-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 1rem 0;
+}
+
+.admin-quiz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-btn {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.admin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-btn-primary {
+  background: var(--accent-purple);
+  color: white;
+}
+
+.admin-btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.admin-btn-danger {
+  background: #e63946;
+  color: white;
+}
+
+.admin-btn-small {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.admin-current-question-label {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-question-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-input {
+  padding: 0.6rem 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 0.95rem;
+}
+
+.admin-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.admin-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-option-row input[type="radio"] {
+  accent-color: var(--accent-purple);
+}
+
+.admin-input-option {
+  flex: 1;
+}
+
+.admin-input-inline {
+  width: 80px;
+}
+
+.admin-question-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-question-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.admin-question-item-text {
+  flex: 1;
+  min-width: 180px;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.admin-question-item-correct {
+  font-size: 0.8rem;
+  color: var(--accent-green);
+}
+
+.admin-add-participant {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-add-participant .admin-input {
+  flex: 1;
+}
+
+.admin-scores-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-scores-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.admin-scores-table th,
+.admin-scores-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-scores-table th {
+  font-weight: 700;
+  color: var(--accent-muted);
+}

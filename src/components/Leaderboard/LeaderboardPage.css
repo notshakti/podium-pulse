@@ -1,0 +1,42 @@
+.leaderboard-page {
+  min-height: 100vh;
+  padding: 2rem 1.5rem 3rem;
+  background: var(--page-bg);
+}
+
+.leaderboard-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.leaderboard-title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  color: white;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.02em;
+}
+
+.leaderboard-subtitle {
+  font-size: 1.1rem;
+  color: var(--accent-muted);
+  margin: 0.5rem 0 0;
+  font-weight: 600;
+}
+
+.leaderboard-podium-section {
+  margin-bottom: 2rem;
+}
+
+.leaderboard-rest-section {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.leaderboard-rest-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 0.75rem 0.5rem;
+}

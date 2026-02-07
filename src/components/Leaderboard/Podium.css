@@ -1,0 +1,103 @@
+.podium-wrap {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  min-height: 280px;
+}
+
+.podium {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: podium-in 0.6s ease-out backwards;
+}
+
+.podium-second { animation-delay: 0.1s; }
+.podium-first  { animation-delay: 0.2s; }
+.podium-third  { animation-delay: 0.3s; }
+
+@keyframes podium-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.podium__block {
+  --podium-color: #7b2cbf;
+  width: 140px;
+  min-height: 80px;
+  background: linear-gradient(180deg, var(--podium-color) 0%, color-mix(in srgb, var(--podium-color) 80%, black) 100%);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 0 rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem 0.5rem 1.25rem;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.podium__block:hover {
+  transform: scale(1.02);
+}
+
+.podium__block--tall {
+  min-height: 140px;
+  padding-top: 1.25rem;
+}
+
+.podium__rank {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--podium-color);
+  color: white;
+  font-weight: 800;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.podium__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  margin-bottom: 0.5rem;
+}
+
+.podium__avatar--first {
+  width: 56px;
+  height: 56px;
+}
+
+.podium__name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: white;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  line-height: 1.2;
+}
+
+.podium__points {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+}
