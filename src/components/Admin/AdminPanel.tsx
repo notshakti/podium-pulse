@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import type { QuizQuestion, Team } from '../../types';
+import { generateLeaderboardPdf } from '../../utils/generateLeaderboardPdf';
 import { DeleteTeamModal } from './DeleteTeamModal';
 import './AdminPanel.css';
 
@@ -21,6 +22,7 @@ export function AdminPanel() {
     settings,
     questions,
     quizState,
+    problemStatements,
     setQuizState,
     addTeam,
     updateTeamPoints,
@@ -31,9 +33,14 @@ export function AdminPanel() {
     resumeTimer,
     resetTimer,
     setScoresHidden,
+    setMaxTeamsPerSlot,
     addQuestion,
     updateQuestion,
     removeQuestion,
+    addProblemStatement,
+    removeProblemStatement,
+    assignAndGetProblemAssignments,
+    resetProblemStatementAssignments,
   } = useApp();
   const { logout } = useAuth();
 
@@ -46,16 +53,24 @@ export function AdminPanel() {
   const [editingPointsTeamId, setEditingPointsTeamId] = useState<string | null>(null);
   const [editingPointsValue, setEditingPointsValue] = useState('');
   const [deleteTeam, setDeleteTeam] = useState<Team | null>(null);
-
-  useEffect(() => {
-    if (defaultSlotId && !newTeamSlotId) setNewTeamSlotId(defaultSlotId);
-  }, [defaultSlotId, newTeamSlotId]);
   const [questionForm, setQuestionForm] = useState<Partial<QuizQuestion> & { question: string; options: [string, string, string, string]; correctIndex: number }>({
     question: '',
     options: ['', '', '', ''],
     correctIndex: 0,
   });
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [problemTitle, setProblemTitle] = useState('');
+  const [problemContent, setProblemContent] = useState('');
+  const problemContentEditableRef = useRef<HTMLDivElement>(null);
+  const [problemSlotId, setProblemSlotId] = useState(defaultSlotId);
+  const [sendResult, setSendResult] = useState<{ ok: boolean; message: string; assignments?: { email: string; teamName: string; problemTitle: string; problemContent: string }[] } | null>(null);
+
+  useEffect(() => {
+    if (defaultSlotId && !newTeamSlotId) setNewTeamSlotId(defaultSlotId);
+  }, [defaultSlotId, newTeamSlotId]);
+  useEffect(() => {
+    if (defaultSlotId && !problemSlotId) setProblemSlotId(defaultSlotId);
+  }, [defaultSlotId, problemSlotId]);
 
   const getTimer = (slotId: string) => timers.find((t) => t.slotId === slotId);
   const getTeamsForSlot = (slotId: string) => teams.filter((t) => t.slotId === slotId);
@@ -175,6 +190,66 @@ export function AdminPanel() {
     });
   };
 
+  const handleAddProblemStatement = () => {
+    const rawContent = problemContentEditableRef.current?.innerHTML ?? '';
+    const textContent = problemContentEditableRef.current?.innerText?.trim() ?? '';
+    if (!problemSlotId || !problemTitle.trim() || !textContent) return;
+    addProblemStatement({ slotId: problemSlotId, title: problemTitle.trim(), content: rawContent.trim() });
+    setProblemTitle('');
+    setProblemContent('');
+    if (problemContentEditableRef.current) problemContentEditableRef.current.innerHTML = '';
+  };
+
+  const handleBoldProblemContent = () => {
+    problemContentEditableRef.current?.focus();
+    document.execCommand('bold', false);
+  };
+
+  const handleAssignAndSend = async () => {
+    setSendResult(null);
+    const assignments = assignAndGetProblemAssignments();
+    if (assignments.length === 0) {
+      const teamsWithEmail = teams.filter((t) => t.leaderEmail?.trim());
+      const hasStatements = problemStatements.length > 0;
+      let msg = 'No assignments generated. ';
+      if (teamsWithEmail.length === 0) msg += 'No teams have a leader Gmail—teams must register via the Register page.';
+      else if (!hasStatements) msg += 'Add at least one problem statement.';
+      else msg += "Each team's slot must have at least one problem statement; add statements to the slots your teams are in.";
+      setSendResult({ ok: false, message: msg });
+      return;
+    }
+    try {
+      const res = await fetch('/api/send-problem-statements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignments }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSendResult({ ok: true, message: data.message ?? `Emails sent to ${assignments.length} team(s).`, assignments });
+      } else {
+        setSendResult({ ok: false, message: data.error ?? data.message ?? 'Email server error. Download assignments below to email manually.', assignments });
+      }
+    } catch {
+      setSendResult({ ok: false, message: 'Could not reach email server. Run "npm run server" and set Gmail env vars (see README). You can download assignments below.', assignments });
+    }
+  };
+
+  const downloadAssignmentsCsv = () => {
+    if (!sendResult?.assignments?.length) return;
+    const headers = 'Email,Team Name,Problem Title,Problem Content\n';
+    const rows = sendResult.assignments.map((a) =>
+      `"${a.email}","${a.teamName.replace(/"/g, '""')}","${a.problemTitle.replace(/"/g, '""')}","${a.problemContent.replace(/"/g, '""')}"`
+    ).join('\n');
+    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'problem-assignments.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="admin-panel">
       <header className="admin-header">
@@ -188,7 +263,7 @@ export function AdminPanel() {
         </div>
       </header>
 
-      {/* Global scores toggle */}
+      {/* Global scores toggle + max teams per slot */}
       <section className="admin-section admin-scores-toggle-section">
         <div className="scores-toggle-wrap">
           <span className="scores-toggle-label">Scores visibility</span>
@@ -204,11 +279,34 @@ export function AdminPanel() {
             )}
           </button>
         </div>
+        <div className="admin-max-teams-wrap">
+          <label className="admin-max-teams-label">Max teams per slot (for registration)</label>
+          <input
+            type="number"
+            className="admin-input admin-input-max-teams"
+            min={1}
+            value={settings.maxTeamsPerSlot}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10);
+              if (!Number.isNaN(n)) setMaxTeamsPerSlot(n);
+            }}
+          />
+        </div>
       </section>
 
       {/* Team management by slot */}
       <section className="admin-section">
-        <h2 className="admin-section-title">Team management</h2>
+        <div className="admin-section-header-row">
+          <h2 className="admin-section-title">Team management</h2>
+          <button
+            type="button"
+            className="admin-btn admin-btn-pdf"
+            onClick={() => generateLeaderboardPdf(teams, slots)}
+            disabled={teams.length === 0}
+          >
+            Generate PDF
+          </button>
+        </div>
         <form
           className="admin-add-team"
           onSubmit={(e) => { e.preventDefault(); handleAddTeam(); }}
@@ -302,6 +400,11 @@ export function AdminPanel() {
                     ) : (
                       <span className="admin-team-name">{team.name}</span>
                     )}
+                    <span className="admin-team-assigned" title="Assigned problem statement">
+                      Problem: {team.assignedProblemId
+                        ? (problemStatements.find((p) => p.id === team.assignedProblemId)?.title ?? '—')
+                        : '—'}
+                    </span>
                     {editingTeamId !== team.id && (
                       <button type="button" className="admin-btn admin-btn-sm admin-btn-outline admin-btn-edit-name" onClick={() => startEditTeamName(team)} aria-label="Edit team name">Edit</button>
                     )}
@@ -360,6 +463,88 @@ export function AdminPanel() {
             </div>
           );
         })}
+      </section>
+
+      {/* Problem statements (slot-wise, manual text) */}
+      <section className="admin-section">
+        <h2 className="admin-section-title">Problem statements (slot-wise)</h2>
+        <p className="admin-section-desc">Add problem statements per slot. Each team gets one random statement from their slot (max 3 teams per statement). Assign & send emails to team leaders (Gmail).</p>
+        <div className="admin-problem-form">
+          <select
+            className="admin-input"
+            value={problemSlotId}
+            onChange={(e) => setProblemSlotId(e.target.value)}
+            aria-label="Slot for this problem"
+          >
+            {slots.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            className="admin-input"
+            placeholder="Problem title"
+            value={problemTitle}
+            onChange={(e) => setProblemTitle(e.target.value)}
+          />
+          <div className="admin-problem-content-wrap">
+            <div className="admin-problem-content-toolbar">
+              <button type="button" className="admin-btn admin-btn-sm admin-btn-outline" onClick={handleBoldProblemContent} title="Bold selected text">
+                <strong>B</strong>
+              </button>
+            </div>
+            <div
+              ref={problemContentEditableRef}
+              className="admin-input admin-textarea admin-contenteditable"
+              contentEditable
+              suppressContentEditableWarning
+              data-placeholder="Problem statement (full text)"
+              onInput={() => setProblemContent(problemContentEditableRef.current?.innerText ?? '')}
+            />
+          </div>
+          <button type="button" className="admin-btn admin-btn-primary" onClick={handleAddProblemStatement} disabled={!problemSlotId || !problemTitle.trim() || !problemContent.trim()}>
+            Add problem statement
+          </button>
+        </div>
+        {slots.map((slot) => {
+          const slotStatements = problemStatements.filter((p) => p.slotId === slot.id);
+          return (
+            <div key={slot.id} className="admin-slot-statements">
+              <h3 className="admin-slot-name" style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>{slot.name} — {slotStatements.length} statement(s)</h3>
+              <ul className="admin-problem-list">
+                {slotStatements.map((p) => (
+                  <li key={p.id} className="admin-problem-item">
+                    <span className="admin-problem-item-title">{p.title}</span>
+                    <span className="admin-problem-item-count">Assigned: {p.timesAssigned}/3</span>
+                    <button type="button" className="admin-btn admin-btn-sm admin-btn-outline" onClick={() => resetProblemStatementAssignments(p.id)} title="Reset assignment count and clear from teams">Reset</button>
+                    <button type="button" className="admin-btn admin-btn-sm admin-btn-danger" onClick={() => removeProblemStatement(p.id)}>Delete</button>
+                  </li>
+                ))}
+              </ul>
+              {slotStatements.length === 0 && <p className="admin-slot-empty">No problem statements for this slot yet.</p>}
+            </div>
+          );
+        })}
+        <div className="admin-send-actions">
+          <button
+            type="button"
+            className="admin-btn admin-btn-primary"
+            onClick={handleAssignAndSend}
+            disabled={problemStatements.length === 0}
+          >
+            Assign & send problem statements
+          </button>
+          {sendResult && (
+            <div className="admin-send-result">
+              <p className={sendResult.ok ? 'admin-send-ok' : 'admin-send-err'}>{sendResult.message}</p>
+              {sendResult.assignments && sendResult.assignments.length > 0 && (
+                <button type="button" className="admin-btn admin-btn-outline admin-btn-sm" onClick={downloadAssignmentsCsv}>
+                  Download assignments (CSV)
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Quiz management */}

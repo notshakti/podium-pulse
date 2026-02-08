@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Team, Slot, SlotTimerState, AppSettings, QuizQuestion, QuizDisplayState } from '../types';
+import type { Team, Slot, SlotTimerState, AppSettings, QuizQuestion, QuizDisplayState, ProblemStatement } from '../types';
 import { TIMER_DURATION_SECONDS } from '../types';
 import * as storage from '../storage';
+
+const MAX_ASSIGNMENTS_PER_PROBLEM = 3;
 
 interface AppState {
   teams: Team[];
@@ -10,6 +12,14 @@ interface AppState {
   settings: AppSettings;
   questions: QuizQuestion[];
   quizState: QuizDisplayState;
+  problemStatements: ProblemStatement[];
+}
+
+export interface ProblemAssignment {
+  email: string;
+  teamName: string;
+  problemTitle: string;
+  problemContent: string;
 }
 
 interface AppContextValue extends AppState {
@@ -19,7 +29,9 @@ interface AppContextValue extends AppState {
   setSettings: (arg: AppSettings | ((prev: AppSettings) => AppSettings)) => void;
   setQuestions: (arg: QuizQuestion[] | ((prev: QuizQuestion[]) => QuizQuestion[])) => void;
   setQuizState: (arg: QuizDisplayState | ((prev: QuizDisplayState) => QuizDisplayState)) => void;
+  setProblemStatements: (arg: ProblemStatement[] | ((prev: ProblemStatement[]) => ProblemStatement[])) => void;
   addTeam: (name: string, slotId: string) => void;
+  registerTeam: (name: string, leaderEmail: string) => { success: boolean; slotName?: string; team?: Team; error?: string };
   updateTeamPoints: (id: string, points: number) => void;
   updateTeam: (id: string, patch: Partial<Team>) => void;
   removeTeam: (id: string) => void;
@@ -28,9 +40,18 @@ interface AppContextValue extends AppState {
   resumeTimer: (slotId: string) => void;
   resetTimer: (slotId: string) => void;
   setScoresHidden: (hidden: boolean) => void;
+  setMaxTeamsPerSlot: (n: number) => void;
   addQuestion: (q: Omit<QuizQuestion, 'id'>) => void;
   updateQuestion: (id: string, q: Partial<QuizQuestion>) => void;
   removeQuestion: (id: string) => void;
+  addProblemStatement: (p: Omit<ProblemStatement, 'id' | 'timesAssigned'>) => void;
+  updateProblemStatement: (id: string, p: Partial<ProblemStatement>) => void;
+  removeProblemStatement: (id: string) => void;
+  assignAndGetProblemAssignments: () => ProblemAssignment[];
+  /** Assign one random problem from the team's slot to this team; returns the assignment for email or null if slot has no statements. */
+  assignOneProblemAndGetAssignment: (team: Team) => ProblemAssignment | null;
+  /** Reset assignment count for a problem and clear it from all teams that had it assigned. */
+  resetProblemStatementAssignments: (problemId: string) => void;
   refreshFromStorage: () => void;
 }
 
@@ -44,6 +65,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettingsState] = useState<AppSettings>(storage.loadSettings);
   const [questions, setQuestionsState] = useState<QuizQuestion[]>(storage.loadQuestions);
   const [quizState, setQuizStateState] = useState<QuizDisplayState>(storage.loadQuizState);
+  const [problemStatements, setProblemStatementsState] = useState<ProblemStatement[]>(storage.loadProblemStatements);
 
   const refreshFromStorage = useCallback(() => {
     setTeamsState(storage.loadTeams());
@@ -52,6 +74,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSettingsState(storage.loadSettings());
     setQuestionsState(storage.loadQuestions());
     setQuizStateState(storage.loadQuizState());
+    setProblemStatementsState(storage.loadProblemStatements());
   }, []);
 
   useEffect(() => {
@@ -72,6 +95,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     storage.saveQuizState(quizState);
   }, [quizState]);
+  useEffect(() => {
+    storage.saveProblemStatements(problemStatements);
+  }, [problemStatements]);
 
   useEffect(() => {
     const interval = setInterval(refreshFromStorage, STORAGE_POLL_MS);
@@ -129,6 +155,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  /** Register team via team login: assign to next available slot (fill order Slot 1 → 2 → 3). */
+  const registerTeam = useCallback((name: string, leaderEmail: string) => {
+    const trimmedName = name.trim() || 'Unknown';
+    const email = leaderEmail.trim().toLowerCase();
+    if (!email || !email.includes('@')) return { success: false, error: 'Please enter a valid Gmail address.' };
+    const maxPerSlot = Math.max(1, settings.maxTeamsPerSlot);
+    const slotOrder = slots.map((s) => s.id);
+    const countsBySlot: Record<string, number> = {};
+    slotOrder.forEach((id) => { countsBySlot[id] = 0; });
+    teams.forEach((t) => { countsBySlot[t.slotId] = (countsBySlot[t.slotId] ?? 0) + 1; });
+    const alreadyRegistered = teams.some((t) => t.leaderEmail?.toLowerCase() === email);
+    if (alreadyRegistered) return { success: false, error: 'This Gmail is already registered.' };
+    let slotId: string | null = null;
+    for (const sid of slotOrder) {
+      if ((countsBySlot[sid] ?? 0) < maxPerSlot) {
+        slotId = sid;
+        break;
+      }
+    }
+    if (!slotId) return { success: false, error: 'All slots are full. Contact the organizer.' };
+    const slotName = slots.find((s) => s.id === slotId)?.name ?? slotId;
+    const newTeam: Team = {
+      id: crypto.randomUUID(),
+      name: trimmedName,
+      slotId,
+      points: 0,
+      leaderEmail: email,
+    };
+    setTeamsState((prev) => {
+      const next = [...prev, newTeam];
+      storage.saveTeams(next);
+      return next;
+    });
+    return { success: true, slotName, team: newTeam };
+  }, [teams, slots, settings.maxTeamsPerSlot]);
+
+  const setMaxTeamsPerSlot = useCallback((n: number) => {
+    setSettingsState((prev) => ({ ...prev, maxTeamsPerSlot: Math.max(1, n) }));
+  }, []);
+
   const updateTeamPoints = useCallback((id: string, points: number) => {
     setTeamsState((prev) =>
       prev.map((t) => (t.id === id ? { ...t, points: Math.max(0, points) } : t))
@@ -179,6 +245,101 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setQuestionsState((prev) => prev.filter((q) => q.id !== id));
   }, []);
 
+  const setProblemStatements = useCallback((arg: ProblemStatement[] | ((prev: ProblemStatement[]) => ProblemStatement[])) => {
+    setProblemStatementsState((prev) => (typeof arg === 'function' ? arg(prev) : arg));
+  }, []);
+
+  const addProblemStatement = useCallback((p: Omit<ProblemStatement, 'id' | 'timesAssigned'>) => {
+    setProblemStatementsState((prev) => [
+      ...prev,
+      { ...p, id: crypto.randomUUID(), timesAssigned: 0 },
+    ]);
+  }, []);
+
+  const updateProblemStatement = useCallback((id: string, p: Partial<ProblemStatement>) => {
+    setProblemStatementsState((prev) => prev.map((s) => (s.id === id ? { ...s, ...p } : s)));
+  }, []);
+
+  const removeProblemStatement = useCallback((id: string) => {
+    setProblemStatementsState((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  /** For each team with email that does not yet have an assignment, randomly assign one problem from that team's slot (max 3 per problem). Returns list for sending emails; also updates teams and problemStatements. */
+  const assignAndGetProblemAssignments = useCallback((): ProblemAssignment[] => {
+    const withEmail = teams.filter((t) => t.leaderEmail?.trim() && !t.assignedProblemId);
+    if (withEmail.length === 0 || problemStatements.length === 0) return [];
+    const shuffled = [...withEmail].sort(() => Math.random() - 0.5);
+    const problemCounts = new Map<string, number>();
+    problemStatements.forEach((p) => problemCounts.set(p.id, p.timesAssigned));
+    const availableForSlot = (slotId: string) =>
+      problemStatements.filter((p) => p.slotId === slotId && (problemCounts.get(p.id) ?? 0) < MAX_ASSIGNMENTS_PER_PROBLEM);
+    const assignments: ProblemAssignment[] = [];
+    const teamUpdates: { id: string; problemId: string }[] = [];
+    const problemUpdates: { id: string; newCount: number }[] = [];
+
+    for (const team of shuffled) {
+      const opts = availableForSlot(team.slotId);
+      if (opts.length === 0) continue;
+      const problem = opts[Math.floor(Math.random() * opts.length)];
+      const count = problemCounts.get(problem.id) ?? 0;
+      problemCounts.set(problem.id, count + 1);
+      assignments.push({
+        email: team.leaderEmail!,
+        teamName: team.name,
+        problemTitle: problem.title,
+        problemContent: problem.content,
+      });
+      teamUpdates.push({ id: team.id, problemId: problem.id });
+      problemUpdates.push({ id: problem.id, newCount: count + 1 });
+    }
+
+    setTeamsState((prev) =>
+      prev.map((t) => {
+        const u = teamUpdates.find((x) => x.id === t.id);
+        return u ? { ...t, assignedProblemId: u.problemId } : t;
+      })
+    );
+    setProblemStatementsState((prev) =>
+      prev.map((p) => {
+        const u = problemUpdates.find((x) => x.id === p.id);
+        return u ? { ...p, timesAssigned: u.newCount } : p;
+      })
+    );
+    return assignments;
+  }, [teams, problemStatements]);
+
+  /** Assign one random problem from the team's slot to this team; updates state and returns the assignment for email, or null if slot has no statements. */
+  const assignOneProblemAndGetAssignment = useCallback((team: Team): ProblemAssignment | null => {
+    if (!team.leaderEmail?.trim() || problemStatements.length === 0) return null;
+    const available = problemStatements.filter(
+      (p) => p.slotId === team.slotId && p.timesAssigned < MAX_ASSIGNMENTS_PER_PROBLEM
+    );
+    if (available.length === 0) return null;
+    const problem = available[Math.floor(Math.random() * available.length)];
+    const assignment: ProblemAssignment = {
+      email: team.leaderEmail,
+      teamName: team.name,
+      problemTitle: problem.title,
+      problemContent: problem.content,
+    };
+    setTeamsState((prev) =>
+      prev.map((t) => (t.id === team.id ? { ...t, assignedProblemId: problem.id } : t))
+    );
+    setProblemStatementsState((prev) =>
+      prev.map((p) => (p.id === problem.id ? { ...p, timesAssigned: p.timesAssigned + 1 } : p))
+    );
+    return assignment;
+  }, [teams, problemStatements]);
+
+  const resetProblemStatementAssignments = useCallback((problemId: string) => {
+    setProblemStatementsState((prev) =>
+      prev.map((p) => (p.id === problemId ? { ...p, timesAssigned: 0 } : p))
+    );
+    setTeamsState((prev) =>
+      prev.map((t) => (t.assignedProblemId === problemId ? { ...t, assignedProblemId: undefined } : t))
+    );
+  }, []);
+
   const value = useMemo<AppContextValue>(
     () => ({
       teams,
@@ -187,13 +348,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       settings,
       questions,
       quizState,
+      problemStatements,
       setTeams,
       setSlots,
       setTimers,
       setSettings,
       setQuestions,
       setQuizState,
+      setProblemStatements,
       addTeam,
+      registerTeam,
       updateTeamPoints,
       updateTeam,
       removeTeam,
@@ -202,9 +366,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resumeTimer,
       resetTimer,
       setScoresHidden,
+      setMaxTeamsPerSlot,
       addQuestion,
       updateQuestion,
       removeQuestion,
+      addProblemStatement,
+      updateProblemStatement,
+      removeProblemStatement,
+      assignAndGetProblemAssignments,
+      assignOneProblemAndGetAssignment,
+      resetProblemStatementAssignments,
       refreshFromStorage,
     }),
     [
@@ -214,13 +385,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       settings,
       questions,
       quizState,
+      problemStatements,
       setTeams,
       setSlots,
       setTimers,
       setSettings,
       setQuestions,
       setQuizState,
+      setProblemStatements,
       addTeam,
+      registerTeam,
       updateTeamPoints,
       updateTeam,
       removeTeam,
@@ -229,9 +403,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resumeTimer,
       resetTimer,
       setScoresHidden,
+      setMaxTeamsPerSlot,
       addQuestion,
       updateQuestion,
       removeQuestion,
+      addProblemStatement,
+      updateProblemStatement,
+      removeProblemStatement,
+      assignAndGetProblemAssignments,
+      assignOneProblemAndGetAssignment,
+      resetProblemStatementAssignments,
       refreshFromStorage,
     ]
   );

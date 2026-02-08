@@ -8,6 +8,10 @@ export interface Team {
   name: string;
   slotId: string;
   points: number;
+  /** Team leader's Gmail (set when registering via team login) */
+  leaderEmail?: string;
+  /** Assigned problem statement id (set when admin sends problem statements) */
+  assignedProblemId?: string;
 }
 
 export interface SlotTimerState {
@@ -18,6 +22,18 @@ export interface SlotTimerState {
 
 export interface AppSettings {
   scoresHidden: boolean;
+  /** Max teams per slot (default 20). Used when teams register via team login. */
+  maxTeamsPerSlot: number;
+}
+
+export interface ProblemStatement {
+  id: string;
+  /** Which slot this statement belongs to (slot-1, slot-2, slot-3) */
+  slotId: string;
+  title: string;
+  content: string;
+  /** Number of times this problem has been assigned (max 3) */
+  timesAssigned: number;
 }
 
 export interface QuizQuestion {

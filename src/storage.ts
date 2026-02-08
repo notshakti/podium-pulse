@@ -1,4 +1,4 @@
-import type { Team, Slot, SlotTimerState, AppSettings, QuizQuestion, QuizDisplayState } from './types';
+import type { Team, Slot, SlotTimerState, AppSettings, QuizQuestion, QuizDisplayState, ProblemStatement } from './types';
 import { DEFAULT_QUIZ_DISPLAY, TIMER_DURATION_SECONDS } from './types';
 
 const TEAMS_KEY = 'build-a-bot-teams';
@@ -8,7 +8,7 @@ const SETTINGS_KEY = 'build-a-bot-settings';
 const QUESTIONS_KEY = 'build-a-bot-questions';
 const QUIZ_STATE_KEY = 'build-a-bot-quiz-state';
 const AUTH_KEY = 'build-a-bot-admin-auth';
-
+const PROBLEM_STATEMENTS_KEY = 'build-a-bot-problem-statements';
 function defaultSlots(): Slot[] {
   return [
     { id: 'slot-1', name: 'Slot 1' },
@@ -65,11 +65,14 @@ export function saveTimers(timers: SlotTimerState[]): void {
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { scoresHidden: false };
+    if (!raw) return { scoresHidden: false, maxTeamsPerSlot: 20 };
     const parsed = JSON.parse(raw) as AppSettings;
-    return { scoresHidden: Boolean(parsed.scoresHidden) };
+    return {
+      scoresHidden: Boolean(parsed.scoresHidden),
+      maxTeamsPerSlot: typeof parsed.maxTeamsPerSlot === 'number' && parsed.maxTeamsPerSlot > 0 ? parsed.maxTeamsPerSlot : 20,
+    };
   } catch {
-    return { scoresHidden: false };
+    return { scoresHidden: false, maxTeamsPerSlot: 20 };
   }
 }
 
@@ -110,6 +113,25 @@ export function loadQuizState(): QuizDisplayState {
 
 export function saveQuizState(state: QuizDisplayState): void {
   localStorage.setItem(QUIZ_STATE_KEY, JSON.stringify(state));
+}
+
+export function loadProblemStatements(): ProblemStatement[] {
+  try {
+    const raw = localStorage.getItem(PROBLEM_STATEMENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as (ProblemStatement & { slotId?: string })[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((s) => ({
+      ...s,
+      slotId: s.slotId ?? 'slot-1',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function saveProblemStatements(statements: ProblemStatement[]): void {
+  localStorage.setItem(PROBLEM_STATEMENTS_KEY, JSON.stringify(statements));
 }
 
 // Simple admin auth: store that we're logged in. Password check is done at login.

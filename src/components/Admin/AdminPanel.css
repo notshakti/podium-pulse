@@ -62,11 +62,29 @@
   border-radius: 12px;
 }
 
+.admin-section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
 .admin-section-title {
   font-size: 1rem;
   font-weight: 700;
   color: white;
-  margin: 0 0 1rem 0;
+  margin: 0;
+}
+
+.admin-btn-pdf {
+  background: #c0392b;
+  color: white;
+}
+
+.admin-btn-pdf:hover:not(:disabled) {
+  background: #e74c3c;
 }
 
 .admin-quiz-controls {
@@ -155,6 +173,118 @@
 .scores-toggle-btn.scores-hidden {
   background: #e63946;
   color: white;
+}
+
+.admin-max-teams-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-max-teams-label {
+  font-weight: 700;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.admin-input-max-teams {
+  width: 64px;
+  text-align: center;
+}
+
+.admin-section-desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-problem-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.admin-problem-content-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-problem-content-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.admin-contenteditable {
+  min-height: 80px;
+  resize: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.admin-contenteditable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--accent-muted);
+}
+
+.admin-problem-list {
+  list-style: none;
+  margin: 0 0 1rem 0;
+  padding: 0;
+}
+
+.admin-problem-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.admin-problem-item-title {
+  flex: 1;
+  min-width: 120px;
+  font-weight: 600;
+  color: white;
+}
+
+.admin-problem-item-count {
+  font-size: 0.85rem;
+  color: var(--accent-muted);
+}
+
+.admin-send-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-send-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-send-ok {
+  margin: 0;
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.admin-send-err {
+  margin: 0;
+  color: #ff9f43;
+  font-size: 0.9rem;
 }
 
 /* Add team */
@@ -252,6 +382,17 @@
   min-width: 120px;
   font-weight: 600;
   color: white;
+}
+
+.admin-team-assigned {
+  flex: 1;
+  min-width: 100px;
+  max-width: 220px;
+  font-size: 0.85rem;
+  color: var(--accent-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-team-name-edit {
