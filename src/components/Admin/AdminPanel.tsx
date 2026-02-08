@@ -35,6 +35,7 @@ export function AdminPanel() {
     removeProblemStatement,
     assignAndGetProblemAssignments,
     resetProblemStatementAssignments,
+    refreshFromApi,
   } = useApp();
   const { logout } = useAuth();
 
@@ -395,6 +396,14 @@ export function AdminPanel() {
       <section className="admin-section">
         <h2 className="admin-section-title">Problem statements (slot-wise)</h2>
         <p className="admin-section-desc">Add problem statements per slot. Each team gets one random statement from their slot (max 3 teams per statement). Assign & send emails to team leaders (Gmail).</p>
+        <button
+          type="button"
+          className="admin-btn admin-btn-outline"
+          onClick={() => refreshFromApi().catch(() => {})}
+          title="Fetch latest state from shared storage (other admins' changes)"
+        >
+          Refresh from shared state
+        </button>
         <div className="admin-problem-form">
           <select
             className="admin-input"

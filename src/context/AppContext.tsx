@@ -53,12 +53,19 @@ interface AppContextValue extends AppState {
   /** Reset assignment count for a problem and clear it from all teams that had it assigned. */
   resetProblemStatementAssignments: (problemId: string) => void;
   refreshFromStorage: () => void;
+  /** Fetch latest state from API and apply (ignores lastModified). Use for manual refresh. */
+  refreshFromApi: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 const STORAGE_POLL_MS = 400;
-const API_STATE_POLL_MS = 5000;
+const API_STATE_POLL_MS = 2000;
 const API_PERSIST_DEBOUNCE_MS = 800;
+const API_PERSIST_IMMEDIATE_MS = 150;
+const SYNC_DEBUG = true;
+function syncLog(...args: unknown[]) {
+  if (SYNC_DEBUG) console.log('[Build-a-Bot Sync]', ...args);
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [teams, setTeamsState] = useState<Team[]>(storage.loadTeams);
@@ -71,6 +78,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const hasHydratedFromApiRef = useRef(false);
   const skipNextPersistRef = useRef(false);
   const serverLastModifiedRef = useRef(0);
+  const latestStateRef = useRef<{
+    teams: Team[];
+    slots: Slot[];
+    timers: SlotTimerState[];
+    settings: AppSettings;
+    questions: QuizQuestion[];
+    quizState: QuizDisplayState;
+    problemStatements: ProblemStatement[];
+  } | null>(null);
+  const prevProblemStatementsLengthRef = useRef(0);
+  const prevTeamsLengthRef = useRef(0);
 
   const refreshFromStorage = useCallback(() => {
     setTeamsState(storage.loadTeams());
@@ -104,19 +122,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     storage.saveProblemStatements(problemStatements);
   }, [problemStatements]);
 
+  const persistStateToApi = useCallback(() => {
+    const payload = latestStateRef.current;
+    if (!payload || !hasHydratedFromApiRef.current) return;
+    const now = Date.now();
+    serverLastModifiedRef.current = now;
+    syncLog('Saving state to Blob', { problemStatements: payload.problemStatements.length, teams: payload.teams.length });
+    fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        if (res.ok) syncLog('State saved to Blob successfully');
+        else syncLog('State save failed', res.status, await res.text());
+      })
+      .catch((err) => syncLog('State save failed', err));
+  }, []);
+
+  const refreshFromApi = useCallback(async () => {
+    syncLog('Manual refresh: fetching from API');
+    const res = await fetch('/api/state');
+    const data = await res.json().catch(() => null);
+    if (!data) {
+      syncLog('Manual refresh: no data');
+      return;
+    }
+    const serverLastModified = typeof data.lastModified === 'number' ? data.lastModified : 0;
+    serverLastModifiedRef.current = serverLastModified;
+    if (Array.isArray(data.teams)) setTeamsState(data.teams);
+    if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
+    if (Array.isArray(data.timers)) setTimersState(data.timers);
+    if (data.settings && typeof data.settings === 'object') setSettingsState(data.settings);
+    if (Array.isArray(data.questions)) setQuestionsState(data.questions);
+    if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
+    if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
+    prevProblemStatementsLengthRef.current = Array.isArray(data.problemStatements) ? data.problemStatements.length : 0;
+    prevTeamsLengthRef.current = Array.isArray(data.teams) ? data.teams.length : 0;
+    syncLog('Manual refresh: applied', { problemStatements: data.problemStatements?.length ?? 0, teams: data.teams?.length ?? 0 });
+  }, []);
+
   // Hydrate from shared API state on mount (so all admins see the same data)
   useEffect(() => {
     let cancelled = false;
     const localTeams = storage.loadTeams();
     const localProblemStatements = storage.loadProblemStatements();
+    syncLog('Hydrating: fetching initial state from API');
     fetch('/api/state')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
         const serverLastModified = typeof data.lastModified === 'number' ? data.lastModified : 0;
+        syncLog('Hydrating: got state', { lastModified: serverLastModified, problemStatements: data.problemStatements?.length ?? 0, teams: data.teams?.length ?? 0 });
         const serverEmpty = (Array.isArray(data.teams) && data.teams.length === 0) && (Array.isArray(data.problemStatements) && data.problemStatements.length === 0);
         const hasLocalData = localTeams.length > 0 || localProblemStatements.length > 0;
         if (serverEmpty && hasLocalData) {
+          syncLog('Hydrating: server empty, pushing local data');
           const payload = {
             teams: localTeams,
             slots: storage.loadSlots(),
@@ -137,42 +198,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
           if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
           serverLastModifiedRef.current = serverLastModified;
+          prevProblemStatementsLengthRef.current = Array.isArray(data.problemStatements) ? data.problemStatements.length : 0;
+          prevTeamsLengthRef.current = Array.isArray(data.teams) ? data.teams.length : 0;
         }
         hasHydratedFromApiRef.current = true;
         skipNextPersistRef.current = true;
       })
-      .catch(() => { hasHydratedFromApiRef.current = true; });
+      .catch((err) => {
+        syncLog('Hydrating failed', err);
+        hasHydratedFromApiRef.current = true;
+      });
     return () => { cancelled = true; };
   }, []);
 
-  // Persist state to shared API (debounced) so other admins see changes
+  // Persist state to shared API: immediate (150ms) when problem statements or teams change, else debounced (800ms)
   useEffect(() => {
     if (!hasHydratedFromApiRef.current) return;
+    latestStateRef.current = {
+      teams,
+      slots,
+      timers,
+      settings,
+      questions,
+      quizState,
+      problemStatements,
+    };
+    const problemStatementsChanged = problemStatements.length !== prevProblemStatementsLengthRef.current;
+    const teamsChanged = teams.length !== prevTeamsLengthRef.current;
+    prevProblemStatementsLengthRef.current = problemStatements.length;
+    prevTeamsLengthRef.current = teams.length;
+    const delay = problemStatementsChanged || teamsChanged ? API_PERSIST_IMMEDIATE_MS : API_PERSIST_DEBOUNCE_MS;
+    if (problemStatementsChanged || teamsChanged) syncLog('Critical change detected, scheduling immediate persist in', delay, 'ms');
     const t = setTimeout(() => {
       if (skipNextPersistRef.current) {
         skipNextPersistRef.current = false;
         return;
       }
-      const payload = {
-        teams,
-        slots,
-        timers,
-        settings,
-        questions,
-        quizState,
-        problemStatements,
-      };
-      serverLastModifiedRef.current = Date.now();
-      fetch('/api/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
-    }, API_PERSIST_DEBOUNCE_MS);
+      persistStateToApi();
+    }, delay);
     return () => clearTimeout(t);
-  }, [teams, slots, timers, settings, questions, quizState, problemStatements]);
+  }, [teams, slots, timers, settings, questions, quizState, problemStatements, persistStateToApi]);
 
-  // Poll shared state so we see changes made by other admins (only apply if server is newer)
+  // Poll shared state every 2s; apply only when server lastModified is newer
   useEffect(() => {
     const interval = setInterval(() => {
       fetch('/api/state')
@@ -180,7 +247,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         .then((data) => {
           if (!data) return;
           const serverLastModified = typeof data.lastModified === 'number' ? data.lastModified : 0;
-          if (serverLastModified <= serverLastModifiedRef.current) return;
+          const currentRef = serverLastModifiedRef.current;
+          if (serverLastModified <= currentRef) {
+            syncLog('Poll: no update', { server: serverLastModified, local: currentRef });
+            return;
+          }
+          syncLog('Poll: applying updates from other admin', { serverLastModified, had: currentRef, problemStatements: data.problemStatements?.length ?? 0, teams: data.teams?.length ?? 0 });
           serverLastModifiedRef.current = serverLastModified;
           if (Array.isArray(data.teams)) setTeamsState(data.teams);
           if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
@@ -189,9 +261,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(data.questions)) setQuestionsState(data.questions);
           if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
           if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
+          prevProblemStatementsLengthRef.current = Array.isArray(data.problemStatements) ? data.problemStatements.length : 0;
+          prevTeamsLengthRef.current = Array.isArray(data.teams) ? data.teams.length : 0;
           skipNextPersistRef.current = true;
         })
-        .catch(() => {});
+        .catch((err) => syncLog('Poll failed', err));
     }, API_STATE_POLL_MS);
     return () => clearInterval(interval);
   }, []);
@@ -474,6 +548,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assignOneProblemAndGetAssignment,
       resetProblemStatementAssignments,
       refreshFromStorage,
+      refreshFromApi,
     }),
     [
       teams,
@@ -511,6 +586,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assignOneProblemAndGetAssignment,
       resetProblemStatementAssignments,
       refreshFromStorage,
+      refreshFromApi,
     ]
   );
 
