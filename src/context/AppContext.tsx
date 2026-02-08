@@ -133,7 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-      .then((res) => {
+      .then(async (res) => {
         if (res.ok) syncLog('State saved to Blob successfully');
         else syncLog('State save failed', res.status, await res.text());
       })
