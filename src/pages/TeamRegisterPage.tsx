@@ -35,7 +35,7 @@ export function TeamRegisterPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ assignments: [assignment] }),
           });
-          const data = await res.json().catch(() => ({}));
+          await res.json().catch(() => ({}));
           setSuccess((s) => (s ? { ...s, emailSent: res.ok } : s));
         } catch {
           setSuccess((s) => (s ? { ...s, emailSent: false } : s));
