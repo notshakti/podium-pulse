@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Team, Slot, SlotTimerState, AppSettings, QuizQuestion, QuizDisplayState, ProblemStatement } from '../types';
 import { TIMER_DURATION_SECONDS } from '../types';
 import * as storage from '../storage';
@@ -57,6 +57,8 @@ interface AppContextValue extends AppState {
 
 const AppContext = createContext<AppContextValue | null>(null);
 const STORAGE_POLL_MS = 400;
+const API_STATE_POLL_MS = 5000;
+const API_PERSIST_DEBOUNCE_MS = 800;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [teams, setTeamsState] = useState<Team[]>(storage.loadTeams);
@@ -66,6 +68,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [questions, setQuestionsState] = useState<QuizQuestion[]>(storage.loadQuestions);
   const [quizState, setQuizStateState] = useState<QuizDisplayState>(storage.loadQuizState);
   const [problemStatements, setProblemStatementsState] = useState<ProblemStatement[]>(storage.loadProblemStatements);
+  const hasHydratedFromApiRef = useRef(false);
+  const skipNextPersistRef = useRef(false);
 
   const refreshFromStorage = useCallback(() => {
     setTeamsState(storage.loadTeams());
@@ -98,6 +102,91 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     storage.saveProblemStatements(problemStatements);
   }, [problemStatements]);
+
+  // Hydrate from shared API state on mount (so all admins see the same data)
+  useEffect(() => {
+    let cancelled = false;
+    const localTeams = storage.loadTeams();
+    const localProblemStatements = storage.loadProblemStatements();
+    fetch('/api/state')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const serverEmpty = (Array.isArray(data.teams) && data.teams.length === 0) && (Array.isArray(data.problemStatements) && data.problemStatements.length === 0);
+        const hasLocalData = localTeams.length > 0 || localProblemStatements.length > 0;
+        if (serverEmpty && hasLocalData) {
+          const payload = {
+            teams: localTeams,
+            slots: storage.loadSlots(),
+            timers: storage.loadTimers(),
+            settings: storage.loadSettings(),
+            questions: storage.loadQuestions(),
+            quizState: storage.loadQuizState(),
+            problemStatements: localProblemStatements,
+          };
+          fetch('/api/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
+        } else {
+          if (Array.isArray(data.teams)) setTeamsState(data.teams);
+          if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
+          if (Array.isArray(data.timers)) setTimersState(data.timers);
+          if (data.settings && typeof data.settings === 'object') setSettingsState(data.settings);
+          if (Array.isArray(data.questions)) setQuestionsState(data.questions);
+          if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
+          if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
+        }
+        hasHydratedFromApiRef.current = true;
+        skipNextPersistRef.current = true;
+      })
+      .catch(() => { hasHydratedFromApiRef.current = true; });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist state to shared API (debounced) so other admins see changes
+  useEffect(() => {
+    if (!hasHydratedFromApiRef.current) return;
+    const t = setTimeout(() => {
+      if (skipNextPersistRef.current) {
+        skipNextPersistRef.current = false;
+        return;
+      }
+      const payload = {
+        teams,
+        slots,
+        timers,
+        settings,
+        questions,
+        quizState,
+        problemStatements,
+      };
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }, API_PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [teams, slots, timers, settings, questions, quizState, problemStatements]);
+
+  // Poll shared state so we see changes made by other admins
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch('/api/state')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data) return;
+          if (Array.isArray(data.teams)) setTeamsState(data.teams);
+          if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
+          if (Array.isArray(data.timers)) setTimersState(data.timers);
+          if (data.settings && typeof data.settings === 'object') setSettingsState(data.settings);
+          if (Array.isArray(data.questions)) setQuestionsState(data.questions);
+          if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
+          if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
+          skipNextPersistRef.current = true;
+        })
+        .catch(() => {});
+    }, API_STATE_POLL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(refreshFromStorage, STORAGE_POLL_MS);

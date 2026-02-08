@@ -100,14 +100,17 @@ The app is set up to run on [Vercel](https://vercel.com) with no code changes.
    - Go to [vercel.com](https://vercel.com) → **Add New** → **Project**.
    - Import the GitHub repo. Vercel will use the existing `vercel.json` (build command, output directory, and SPA rewrites).
 
-3. **Set environment variables** (for email sending)
+3. **Enable shared admin data** (so all admins see the same problem statements, teams, etc.)
+   - In the Vercel project: **Storage** tab → **Create Database** → **Blob** → create a Blob store. This adds `BLOB_READ_WRITE_TOKEN`. Redeploy after creating it.
+
+4. **Set environment variables** (for email sending)
    - In the Vercel project: **Settings** → **Environment Variables**.
    - Add:
      - `GMAIL_USER` — your Gmail address
      - `GMAIL_APP_PASSWORD` — your [Gmail App Password](https://support.google.com/accounts/answer/185833)
    - Redeploy after adding or changing variables.
 
-4. **Deploy**
+5. **Deploy**
    - Each push to the main branch triggers a deploy. Or use **Deploy** from the Vercel dashboard.
 
-The site will behave the same as locally: the React app is served from the root, `/api/send-problem-statements` runs as a serverless function (so “Assign & send” and registration emails work when Gmail env vars are set), and all app data stays in the browser’s **localStorage** (per device).
+With a Blob store (step 3), admin data is shared for everyone. Without it, each browser uses its own localStorage. The site will behave the same as locally: the React app is served from the root, `/api/send-problem-statements` runs as a serverless function (so “Assign & send” and registration emails work when Gmail env vars are set), and all app data stays in the browser’s **localStorage** (per device).

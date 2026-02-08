@@ -41,7 +41,6 @@ export function LoginPage() {
           {error && <p className="login-error" role="alert">{error}</p>}
           <button type="submit" className="login-btn">Sign in</button>
         </form>
-        <p className="login-hint">Default password: admin123</p>
       </div>
     </div>
   );
