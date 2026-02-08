@@ -70,6 +70,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [problemStatements, setProblemStatementsState] = useState<ProblemStatement[]>(storage.loadProblemStatements);
   const hasHydratedFromApiRef = useRef(false);
   const skipNextPersistRef = useRef(false);
+  const serverLastModifiedRef = useRef(0);
 
   const refreshFromStorage = useCallback(() => {
     setTeamsState(storage.loadTeams());
@@ -112,6 +113,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
+        const serverLastModified = typeof data.lastModified === 'number' ? data.lastModified : 0;
         const serverEmpty = (Array.isArray(data.teams) && data.teams.length === 0) && (Array.isArray(data.problemStatements) && data.problemStatements.length === 0);
         const hasLocalData = localTeams.length > 0 || localProblemStatements.length > 0;
         if (serverEmpty && hasLocalData) {
@@ -125,6 +127,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             problemStatements: localProblemStatements,
           };
           fetch('/api/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
+          serverLastModifiedRef.current = Date.now();
         } else {
           if (Array.isArray(data.teams)) setTeamsState(data.teams);
           if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
@@ -133,6 +136,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(data.questions)) setQuestionsState(data.questions);
           if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
           if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
+          serverLastModifiedRef.current = serverLastModified;
         }
         hasHydratedFromApiRef.current = true;
         skipNextPersistRef.current = true;
@@ -158,6 +162,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         quizState,
         problemStatements,
       };
+      serverLastModifiedRef.current = Date.now();
       fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,13 +172,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [teams, slots, timers, settings, questions, quizState, problemStatements]);
 
-  // Poll shared state so we see changes made by other admins
+  // Poll shared state so we see changes made by other admins (only apply if server is newer)
   useEffect(() => {
     const interval = setInterval(() => {
       fetch('/api/state')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (!data) return;
+          const serverLastModified = typeof data.lastModified === 'number' ? data.lastModified : 0;
+          if (serverLastModified <= serverLastModifiedRef.current) return;
+          serverLastModifiedRef.current = serverLastModified;
           if (Array.isArray(data.teams)) setTeamsState(data.teams);
           if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
           if (Array.isArray(data.timers)) setTimersState(data.timers);

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import type { QuizQuestion, Team } from '../../types';
+import type { Team } from '../../types';
 import { generateLeaderboardPdf } from '../../utils/generateLeaderboardPdf';
 import { DeleteTeamModal } from './DeleteTeamModal';
 import './AdminPanel.css';
@@ -20,10 +20,7 @@ export function AdminPanel() {
     slots,
     timers,
     settings,
-    questions,
-    quizState,
     problemStatements,
-    setQuizState,
     addTeam,
     updateTeamPoints,
     updateTeam,
@@ -34,9 +31,6 @@ export function AdminPanel() {
     resetTimer,
     setScoresHidden,
     setMaxTeamsPerSlot,
-    addQuestion,
-    updateQuestion,
-    removeQuestion,
     addProblemStatement,
     removeProblemStatement,
     assignAndGetProblemAssignments,
@@ -53,12 +47,6 @@ export function AdminPanel() {
   const [editingPointsTeamId, setEditingPointsTeamId] = useState<string | null>(null);
   const [editingPointsValue, setEditingPointsValue] = useState('');
   const [deleteTeam, setDeleteTeam] = useState<Team | null>(null);
-  const [questionForm, setQuestionForm] = useState<Partial<QuizQuestion> & { question: string; options: [string, string, string, string]; correctIndex: number }>({
-    question: '',
-    options: ['', '', '', ''],
-    correctIndex: 0,
-  });
-  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [problemTitle, setProblemTitle] = useState('');
   const [problemContent, setProblemContent] = useState('');
   const problemContentEditableRef = useRef<HTMLDivElement>(null);
@@ -126,68 +114,6 @@ export function AdminPanel() {
       removeTeam(deleteTeam.id);
       setDeleteTeam(null);
     }
-  };
-
-  const handleStartQuestion = () => {
-    if (questions.length === 0) return;
-    setQuizState({
-      phase: 'question',
-      currentQuestionIndex: 0,
-      countdownSeconds: 10,
-      revealed: false,
-    });
-  };
-
-  const handleRevealAnswer = () => {
-    setQuizState((prev) => ({ ...prev, phase: 'reveal', revealed: true }));
-  };
-
-  const handleNextQuestion = () => {
-    const next = quizState.currentQuestionIndex + 1;
-    if (next >= questions.length) {
-      setQuizState({ phase: 'idle', currentQuestionIndex: 0, countdownSeconds: 10, revealed: false });
-      return;
-    }
-    setQuizState({
-      phase: 'question',
-      currentQuestionIndex: next,
-      countdownSeconds: 10,
-      revealed: false,
-    });
-  };
-
-  const handleStopQuiz = () => {
-    setQuizState({ phase: 'idle', currentQuestionIndex: 0, countdownSeconds: 10, revealed: false });
-  };
-
-  const handleAddQuestion = () => {
-    if (!questionForm.question?.trim() || questionForm.options.some((o) => !o?.trim())) return;
-    addQuestion({
-      question: questionForm.question.trim(),
-      options: questionForm.options.map((o) => o.trim()) as [string, string, string, string],
-      correctIndex: questionForm.correctIndex,
-    });
-    setQuestionForm({ question: '', options: ['', '', '', ''], correctIndex: 0 });
-  };
-
-  const handleSaveEditQuestion = () => {
-    if (!editingQuestionId) return;
-    updateQuestion(editingQuestionId, {
-      question: questionForm.question.trim(),
-      options: questionForm.options.map((o) => o.trim()) as [string, string, string, string],
-      correctIndex: questionForm.correctIndex,
-    });
-    setEditingQuestionId(null);
-    setQuestionForm({ question: '', options: ['', '', '', ''], correctIndex: 0 });
-  };
-
-  const startEditQuestion = (q: QuizQuestion) => {
-    setEditingQuestionId(q.id);
-    setQuestionForm({
-      question: q.question,
-      options: [...q.options],
-      correctIndex: q.correctIndex,
-    });
   };
 
   const handleAddProblemStatement = () => {
@@ -545,89 +471,6 @@ export function AdminPanel() {
             </div>
           )}
         </div>
-      </section>
-
-      {/* Quiz management */}
-      <section className="admin-section">
-        <h2 className="admin-section-title">Quiz management</h2>
-        <div className="admin-quiz-controls">
-          <button
-            type="button"
-            className="admin-btn admin-btn-primary"
-            onClick={handleStartQuestion}
-            disabled={questions.length === 0}
-          >
-            Start quiz (first question)
-          </button>
-          {quizState.phase !== 'idle' && (
-            <>
-              <button type="button" className="admin-btn admin-btn-secondary" onClick={handleRevealAnswer}>
-                Reveal answer
-              </button>
-              <button type="button" className="admin-btn admin-btn-secondary" onClick={handleNextQuestion}>
-                Next question
-              </button>
-              <button type="button" className="admin-btn admin-btn-danger" onClick={handleStopQuiz}>
-                Stop quiz
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="admin-question-form">
-          <input
-            type="text"
-            className="admin-input"
-            placeholder="Question text"
-            value={questionForm.question}
-            onChange={(e) => setQuestionForm((f) => ({ ...f, question: e.target.value }))}
-          />
-          {([0, 1, 2, 3] as const).map((i) => (
-            <label key={i} className="admin-option-row">
-              <input
-                type="radio"
-                name="correct"
-                checked={questionForm.correctIndex === i}
-                onChange={() => setQuestionForm((f) => ({ ...f, correctIndex: i }))}
-              />
-              <input
-                type="text"
-                className="admin-input admin-input-option"
-                placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                value={questionForm.options[i] ?? ''}
-                onChange={(e) => {
-                  const opts = [...(questionForm.options || ['', '', '', ''])] as [string, string, string, string];
-                  opts[i] = e.target.value;
-                  setQuestionForm((f) => ({ ...f, options: opts }));
-                }}
-              />
-            </label>
-          ))}
-          {editingQuestionId ? (
-            <>
-              <button type="button" className="admin-btn admin-btn-primary" onClick={handleSaveEditQuestion}>
-                Save changes
-              </button>
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => { setEditingQuestionId(null); setQuestionForm({ question: '', options: ['', '', '', ''], correctIndex: 0 }); }}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button type="button" className="admin-btn admin-btn-primary" onClick={handleAddQuestion}>
-              Add question
-            </button>
-          )}
-        </div>
-        <ul className="admin-question-list">
-          {questions.map((q) => (
-            <li key={q.id} className="admin-question-item">
-              <span className="admin-question-item-text">{q.question}</span>
-              <span className="admin-question-item-correct">✓ {String.fromCharCode(65 + q.correctIndex)}</span>
-              <button type="button" className="admin-btn admin-btn-sm admin-btn-outline" onClick={() => startEditQuestion(q)}>Edit</button>
-              <button type="button" className="admin-btn admin-btn-sm admin-btn-danger" onClick={() => removeQuestion(q.id)}>Delete</button>
-            </li>
-          ))}
-        </ul>
       </section>
 
       {deleteTeam && (

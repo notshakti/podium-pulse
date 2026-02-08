@@ -4,6 +4,7 @@ const STATE_BLOB_PATH = 'app-state.json';
 
 function defaultState() {
   return {
+    lastModified: 0,
     teams: [],
     slots: [
       { id: 'slot-1', name: 'Slot 1' },
@@ -50,7 +51,8 @@ export async function POST(request) {
   }
   try {
     const body = await request.json();
-    const payload = JSON.stringify(body);
+    const stateWithTimestamp = { ...body, lastModified: Date.now() };
+    const payload = JSON.stringify(stateWithTimestamp);
     await put(STATE_BLOB_PATH, payload, {
       access: 'public',
       addRandomSuffix: false,
