@@ -65,14 +65,15 @@ export function saveTimers(timers: SlotTimerState[]): void {
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { scoresHidden: false, maxTeamsPerSlot: 20 };
+    if (!raw) return { scoresHidden: false, maxTeamsPerSlot: 20, maxAssignmentsPerProblem: 3 };
     const parsed = JSON.parse(raw) as AppSettings;
     return {
       scoresHidden: Boolean(parsed.scoresHidden),
       maxTeamsPerSlot: typeof parsed.maxTeamsPerSlot === 'number' && parsed.maxTeamsPerSlot > 0 ? parsed.maxTeamsPerSlot : 20,
+      maxAssignmentsPerProblem: typeof parsed.maxAssignmentsPerProblem === 'number' && parsed.maxAssignmentsPerProblem > 0 ? parsed.maxAssignmentsPerProblem : 3,
     };
   } catch {
-    return { scoresHidden: false, maxTeamsPerSlot: 20 };
+    return { scoresHidden: false, maxTeamsPerSlot: 20, maxAssignmentsPerProblem: 3 };
   }
 }
 

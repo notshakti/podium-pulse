@@ -31,6 +31,7 @@ export function AdminPanel() {
     resetTimer,
     setScoresHidden,
     setMaxTeamsPerSlot,
+    setMaxAssignmentsPerProblem,
     addProblemStatement,
     removeProblemStatement,
     assignAndGetProblemAssignments,
@@ -219,6 +220,19 @@ export function AdminPanel() {
             }}
           />
         </div>
+        <div className="admin-max-teams-wrap">
+          <label className="admin-max-teams-label">Max teams per problem statement</label>
+          <input
+            type="number"
+            className="admin-input admin-input-max-teams"
+            min={1}
+            value={settings.maxAssignmentsPerProblem ?? 3}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10);
+              if (!Number.isNaN(n)) setMaxAssignmentsPerProblem(n);
+            }}
+          />
+        </div>
       </section>
 
       {/* Team management by slot */}
@@ -395,7 +409,7 @@ export function AdminPanel() {
       {/* Problem statements (slot-wise, manual text) */}
       <section className="admin-section">
         <h2 className="admin-section-title">Problem statements (slot-wise)</h2>
-        <p className="admin-section-desc">Add problem statements per slot. Each team gets one random statement from their slot (max 3 teams per statement). Assign & send emails to team leaders (Gmail).</p>
+        <p className="admin-section-desc">Add problem statements per slot. Each team gets one random statement from their slot (max teams per statement is set above). Assign & send emails to team leaders (Gmail).</p>
         <button
           type="button"
           className="admin-btn admin-btn-outline"
@@ -450,7 +464,7 @@ export function AdminPanel() {
                 {slotStatements.map((p) => (
                   <li key={p.id} className="admin-problem-item">
                     <span className="admin-problem-item-title">{p.title}</span>
-                    <span className="admin-problem-item-count">Assigned: {p.timesAssigned}/3</span>
+                    <span className="admin-problem-item-count">Assigned: {p.timesAssigned}/{settings.maxAssignmentsPerProblem ?? 3}</span>
                     <button type="button" className="admin-btn admin-btn-sm admin-btn-outline" onClick={() => resetProblemStatementAssignments(p.id)} title="Reset assignment count and clear from teams">Reset</button>
                     <button type="button" className="admin-btn admin-btn-sm admin-btn-danger" onClick={() => removeProblemStatement(p.id)}>Delete</button>
                   </li>

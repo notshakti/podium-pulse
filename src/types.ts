@@ -24,6 +24,8 @@ export interface AppSettings {
   scoresHidden: boolean;
   /** Max teams per slot (default 20). Used when teams register via team login. */
   maxTeamsPerSlot: number;
+  /** Max times a problem statement can be assigned to teams (default 3). */
+  maxAssignmentsPerProblem: number;
 }
 
 export interface ProblemStatement {

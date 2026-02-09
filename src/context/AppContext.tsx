@@ -3,8 +3,6 @@ import type { Team, Slot, SlotTimerState, AppSettings, QuizQuestion, QuizDisplay
 import { TIMER_DURATION_SECONDS } from '../types';
 import * as storage from '../storage';
 
-const MAX_ASSIGNMENTS_PER_PROBLEM = 3;
-
 interface AppState {
   teams: Team[];
   slots: Slot[];
@@ -41,6 +39,7 @@ interface AppContextValue extends AppState {
   resetTimer: (slotId: string) => void;
   setScoresHidden: (hidden: boolean) => void;
   setMaxTeamsPerSlot: (n: number) => void;
+  setMaxAssignmentsPerProblem: (n: number) => void;
   addQuestion: (q: Omit<QuizQuestion, 'id'>) => void;
   updateQuestion: (id: string, q: Partial<QuizQuestion>) => void;
   removeQuestion: (id: string) => void;
@@ -125,20 +124,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const persistStateToApi = useCallback(() => {
     const payload = latestStateRef.current;
     if (!payload || !hasHydratedFromApiRef.current) return;
+    persistStateToApiWithPayload(payload);
+  }, []);
+
+  /** Persist a specific state payload to the API (e.g. right after registration so other admins see the new team). */
+  function persistStateToApiWithPayload(payload: AppState) {
+    if (!hasHydratedFromApiRef.current) return;
     const now = Date.now();
     serverLastModifiedRef.current = now;
-    syncLog('Saving state to Blob', { problemStatements: payload.problemStatements.length, teams: payload.teams.length });
+    syncLog('Saving state to API', { teams: payload.teams.length, problemStatements: payload.problemStatements.length });
     fetch('/api/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
       .then(async (res) => {
-        if (res.ok) syncLog('State saved to Blob successfully');
+        if (res.ok) syncLog('State saved to API successfully');
         else syncLog('State save failed', res.status, await res.text());
       })
       .catch((err) => syncLog('State save failed', err));
-  }, []);
+  }
 
   const refreshFromApi = useCallback(async () => {
     syncLog('Manual refresh: fetching from API');
@@ -153,7 +158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (Array.isArray(data.teams)) setTeamsState(data.teams);
     if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
     if (Array.isArray(data.timers)) setTimersState(data.timers);
-    if (data.settings && typeof data.settings === 'object') setSettingsState(data.settings);
+    if (data.settings && typeof data.settings === 'object') setSettingsState((prev) => ({ ...prev, ...data.settings }));
     if (Array.isArray(data.questions)) setQuestionsState(data.questions);
     if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
     if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
@@ -193,7 +198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(data.teams)) setTeamsState(data.teams);
           if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
           if (Array.isArray(data.timers)) setTimersState(data.timers);
-          if (data.settings && typeof data.settings === 'object') setSettingsState(data.settings);
+          if (data.settings && typeof data.settings === 'object') setSettingsState((prev) => ({ ...prev, ...data.settings }));
           if (Array.isArray(data.questions)) setQuestionsState(data.questions);
           if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
           if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
@@ -257,7 +262,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(data.teams)) setTeamsState(data.teams);
           if (Array.isArray(data.slots) && data.slots.length > 0) setSlotsState(data.slots);
           if (Array.isArray(data.timers)) setTimersState(data.timers);
-          if (data.settings && typeof data.settings === 'object') setSettingsState(data.settings);
+          if (data.settings && typeof data.settings === 'object') setSettingsState((prev) => ({ ...prev, ...data.settings }));
           if (Array.isArray(data.questions)) setQuestionsState(data.questions);
           if (data.quizState && typeof data.quizState === 'object') setQuizStateState(data.quizState);
           if (Array.isArray(data.problemStatements)) setProblemStatementsState(data.problemStatements);
@@ -354,16 +359,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       points: 0,
       leaderEmail: email,
     };
+    const newTeams = [...teams, newTeam];
     setTeamsState((prev) => {
       const next = [...prev, newTeam];
       storage.saveTeams(next);
       return next;
     });
+    // Persist immediately so other admins see the new team without waiting for poll
+    persistStateToApiWithPayload({
+      teams: newTeams,
+      slots,
+      timers,
+      settings,
+      questions,
+      quizState,
+      problemStatements,
+    });
     return { success: true, slotName, team: newTeam };
-  }, [teams, slots, settings.maxTeamsPerSlot]);
+  }, [teams, slots, settings, timers, questions, quizState, problemStatements]);
 
   const setMaxTeamsPerSlot = useCallback((n: number) => {
     setSettingsState((prev) => ({ ...prev, maxTeamsPerSlot: Math.max(1, n) }));
+  }, []);
+
+  const setMaxAssignmentsPerProblem = useCallback((n: number) => {
+    setSettingsState((prev) => ({ ...prev, maxAssignmentsPerProblem: Math.max(1, n) }));
   }, []);
 
   const updateTeamPoints = useCallback((id: string, points: number) => {
@@ -442,8 +462,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const shuffled = [...withEmail].sort(() => Math.random() - 0.5);
     const problemCounts = new Map<string, number>();
     problemStatements.forEach((p) => problemCounts.set(p.id, p.timesAssigned));
+    const maxPerProblem = Math.max(1, settings.maxAssignmentsPerProblem ?? 3);
     const availableForSlot = (slotId: string) =>
-      problemStatements.filter((p) => p.slotId === slotId && (problemCounts.get(p.id) ?? 0) < MAX_ASSIGNMENTS_PER_PROBLEM);
+      problemStatements.filter((p) => p.slotId === slotId && (problemCounts.get(p.id) ?? 0) < maxPerProblem);
     const assignments: ProblemAssignment[] = [];
     const teamUpdates: { id: string; problemId: string }[] = [];
     const problemUpdates: { id: string; newCount: number }[] = [];
@@ -477,13 +498,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     );
     return assignments;
-  }, [teams, problemStatements]);
+  }, [teams, problemStatements, settings.maxAssignmentsPerProblem]);
 
   /** Assign one random problem from the team's slot to this team; updates state and returns the assignment for email, or null if slot has no statements. */
   const assignOneProblemAndGetAssignment = useCallback((team: Team): ProblemAssignment | null => {
     if (!team.leaderEmail?.trim() || problemStatements.length === 0) return null;
+    const maxPerProblem = Math.max(1, settings.maxAssignmentsPerProblem ?? 3);
     const available = problemStatements.filter(
-      (p) => p.slotId === team.slotId && p.timesAssigned < MAX_ASSIGNMENTS_PER_PROBLEM
+      (p) => p.slotId === team.slotId && p.timesAssigned < maxPerProblem
     );
     if (available.length === 0) return null;
     const problem = available[Math.floor(Math.random() * available.length)];
@@ -500,7 +522,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       prev.map((p) => (p.id === problem.id ? { ...p, timesAssigned: p.timesAssigned + 1 } : p))
     );
     return assignment;
-  }, [teams, problemStatements]);
+  }, [teams, problemStatements, settings.maxAssignmentsPerProblem]);
 
   const resetProblemStatementAssignments = useCallback((problemId: string) => {
     setProblemStatementsState((prev) =>
@@ -538,6 +560,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resetTimer,
       setScoresHidden,
       setMaxTeamsPerSlot,
+      setMaxAssignmentsPerProblem,
       addQuestion,
       updateQuestion,
       removeQuestion,
@@ -576,6 +599,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resetTimer,
       setScoresHidden,
       setMaxTeamsPerSlot,
+      setMaxAssignmentsPerProblem,
       addQuestion,
       updateQuestion,
       removeQuestion,
